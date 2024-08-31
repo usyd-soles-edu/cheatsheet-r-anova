@@ -1,0 +1,163 @@
+---
+title: ANOVA in R
+subtitle: Cheatsheet
+date: today
+lightbox: true
+---
+
+```{r setup}
+#| include: false
+
+if (!require("Require")) {
+    install.packages("Require")
+    require("Require")
+}
+Require(c(
+    car, emmeans, gt, gtsummary, rstatix, tidyverse, palmerpenguins
+))
+possums <- readxl::read_excel("possum_bw.xlsx")
+```
+
+
+::: {.grid}
+::: {.g-col-6}
+{{< include _license.qmd >}}
+
+::: {.callout-note collapse="false"}
+## Assumed knowledge
+- You know how to install and load packages in R.
+- You know how to import data into R.
+- You recognise data frames and vectors.
+- **You know what an ANOVA test is and when to use it. **
+:::
+:::
+::: {.g-col-6}
+{{< include _tidy.qmd >}}
+
+::: {.callout-warning}
+## Data
+For this cheatsheet we will use data from the penguins dataset from the `palmerpenguins` package. You may need to install this package:
+
+```{r}
+#| eval: false
+install.packages("palmerpenguins")
+```
+
+:::
+:::
+:::
+
+
+## About
+ANOVA summaries are often used when the model's predictors/explanatory variables are **categorical**. This cheatsheet shows you how to perform ANOVA techniqus in R.
+
+ANOVA answers questions such as:
+
+- Are there differences in plant height between these two locations? (Yes, similar to a two-sample *t*-test).
+- Is location a significant predictor of species diversity?
+- Is the mean height of kangaroos different between different species?
+
+[**Interpretation of the results is not covered here.**]{style="color:red"}
+
+### R packages used
+`tidyverse`, `car`, `emmeans`, `gt`, `gtsummary`, `rstatix`, `palmerpenguins`
+
+
+
+## Similarity between ANOVA and linear regression
+All of the below are equivalent ways to perform an ANOVA test in R. The first method is the most common but method 4 is most flexible. Note that [native R pipes (`|>`)](https://posit.co/wp-content/themes/Posit/public/markdown-blogs/rstudio-v1-4-update-whats-new/index.html#new-native-pipe-operator) are used in the examples below.
+
+```{r}
+#| eval: false
+
+## ANOVA
+aov(body_mass_g ~ species, data = penguins) |> summary() # method 1
+
+## Using GLM (multiple ways)
+lm(body_mass_g ~ species, data = penguins) # method 2; same p-values
+lm(body_mass_g ~ species, data = penguins) |> anova() # method 3
+lm(body_mass_g ~ species, data = penguins) |> car::Anova() # method 4
+```
+
+## ANOVA types
+All ANOVA tables are created using the `car::Anova()` function, which are more flexible and can create type II and type III ANOVA tables rapidly (useful for unbalanced designs and/or with interactions).
+
+::: panel-tabset
+## One-way ANOVA
+```{r}
+#| eval: true
+fit01 <- lm(body_mass_g ~ species, data = penguins)
+car::Anova(fit01) # prints the ANOVA table
+ 
+```
+
+## Two-way ANOVA
+```{r}
+#| eval: true
+fit02 <- lm(body_mass_g ~ species + sex, data = penguins)
+car::Anova(fit02) # prints the ANOVA table
+```
+
+## Two-way ANOVA with interaction
+```{r}
+#| eval: true
+fit03 <- lm(body_mass_g ~ species * sex, data = penguins)
+car::Anova(fit03) # prints the ANOVA table
+```
+:::
+
+
+## Assumptions
+
+```{r}
+#| fig-height: 6
+par(mfrow = c(2, 2)) # creates a 2x2 grid for plots
+plot(fit01)
+```
+
+
+## Interpreting effects using estimated marginal means
+
+
+::: panel-tabset
+## One-way ANOVA
+The simplest way to report pairwise comparisons is to plot the estimated marginal means (EMMs) and their confidence intervals.
+```{r}
+#| fig-height: 1.5
+emm1 <- emmeans(fit01, ~ species)
+plot(emm1, comparisons = TRUE)
+```
+
+Reporting of the plots can be supplemented with a table of the estimated marginal means (perhaps in the appendix or as supplementary material).
+
+```{r}
+emm1
+```
+
+## Two-way ANOVA
+As there are two main effects, we need to plot the estimated marginal means for each main effect separately.
+```{r}
+#| fig-height: 1.5
+emm2 <- emmeans(fit02, ~ species)
+plot(emm2, comparisons = TRUE)
+emm3 <- emmeans(fit02, ~ sex)
+plot(emm3, comparisons = TRUE)
+```
+
+
+## Significant interactions
+If there is a significant interaction, the main effects should not be interpreted without considering the interaction. Two plots are needed to interpret a two-way interaction.
+
+```{r}
+#| fig-height: 1.6
+emmip(fit03, sex ~ species)
+emmip(fit03, species ~ sex)
+```
+:::
+
+## Other resources
+
+- It might be worthwhile to use the [`performance`](https://easystats.github.io/performance/) package to assess model fit (including assumptions using `check_model()`).
+- I use this a lot: the [`interactions`](https://interactions.jacob-long.com/) package for visualising interactions in GLM models. However it is very technical and not for beginners -- use if you are comfortable with R.
+- The `rstatix` package has a useful function called [`anova_summary()`](https://rpkgs.datanovia.com/rstatix/reference/anova_summary.html) to produce *almost publishable* ANOVA tables. You will still need to manipulate it to make it look nice.
+
